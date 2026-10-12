@@ -81,17 +81,41 @@ const MapLocationPicker = ({ onLocationChange }) => {
     const [gpsLoading, setGpsLoading] = useState(false);
     const [geocoding, setGeocoding] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const [searchStatus, setSearchStatus] = useState('');
     const suggestRef = useRef(null);
+    const searchedPositionRef = useRef(null);
+    const geocodeRequestRef = useRef(0);
 
     // When map stops moving, reverse-geocode the new center
     const handleMapMove = useDebounce(async (lat, lng) => {
         setCenter([lat, lng]);
+
+        // A search result already has an exact address. Do not let the
+        // animated map's moveend event overwrite it with a reverse-geocoded
+        // approximation a moment later.
+        const searched = searchedPositionRef.current;
+        if (searched &&
+            Math.abs(lat - searched.lat) < 0.0005 &&
+            Math.abs(lng - searched.lng) < 0.0005) {
+            searchedPositionRef.current = null;
+            return;
+        }
+        searchedPositionRef.current = null;
+
+        const requestId = ++geocodeRequestRef.current;
+        const coordinateAddress = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
         setGeocoding(true);
+        // Immediately save the new coordinates so a quick submit can't use
+        // the previous location while reverse-geocoding is still in flight.
+        onLocationChange({ lat, lng, address: coordinateAddress });
+
         const addr = await reverseGeocode(lat, lng);
+        if (requestId !== geocodeRequestRef.current) return;
         setAddress(addr);
         setSearchQuery(addr);
+        setSearchStatus('');
         setGeocoding(false);
-        onLocationChange({ lat, lng, address: addr });
+        onLocationChange({ lat, lng, address: addr || coordinateAddress });
     }, 400);
 
     // GPS: get user's current location
@@ -114,25 +138,90 @@ const MapLocationPicker = ({ onLocationChange }) => {
 
     // Address search suggestions
     const fetchSuggestions = useDebounce(async (q) => {
-        const results = await searchAddress(q);
+        const query = q.trim();
+        if (query.length < 3) {
+            setSuggestions([]);
+            setShowSuggestions(false);
+            setSearchStatus(query ? 'Enter at least 3 characters to search.' : '');
+            return;
+        }
+        const results = await searchAddress(query);
         setSuggestions(results);
         setShowSuggestions(results.length > 0);
+        setSearchStatus(results.length
+            ? 'Choose a suggestion to confirm the exact location.'
+            : 'No matching address found. Try a fuller address or nearby landmark.');
     }, 500);
 
     const handleSearchChange = (e) => {
-        setSearchQuery(e.target.value);
-        fetchSuggestions(e.target.value);
+        const query = e.target.value;
+        setSearchQuery(query);
+        setAddress('');
+        setSuggestions([]);
+        setShowSuggestions(false);
+        setSearchStatus(query.trim().length >= 3 ? 'Searching for location…' : (query.trim() ? 'Enter at least 3 characters to search.' : ''));
+
+        // Typing a new address invalidates the old selected point. This
+        // prevents accidentally submitting the previous location.
+        geocodeRequestRef.current += 1;
+        searchedPositionRef.current = null;
+        setGeocoding(false);
+        onLocationChange({ lat: null, lng: null, address: '' });
+        fetchSuggestions(query);
     };
 
     const handleSuggestionClick = (item) => {
-        const lat = parseFloat(item.lat);
-        const lng = parseFloat(item.lon);
+        const lat = Number.parseFloat(item.lat);
+        const lng = Number.parseFloat(item.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            setSearchStatus('That result has no usable map coordinates. Please choose another result.');
+            return;
+        }
+        geocodeRequestRef.current += 1;
+        searchedPositionRef.current = { lat, lng };
+        setCenter([lat, lng]);
         setFlyTarget([lat, lng]);
         setAddress(item.display_name);
         setSearchQuery(item.display_name);
         setSuggestions([]);
         setShowSuggestions(false);
+        setSearchStatus('Location selected.');
+        setGeocoding(false);
         onLocationChange({ lat, lng, address: item.display_name });
+    };
+
+    const handleSearchKeyDown = async (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+
+        if (suggestions.length > 0) {
+            handleSuggestionClick(suggestions[0]);
+            return;
+        }
+
+        const query = searchQuery.trim();
+        if (query.length < 3) return;
+
+        setSearchStatus('Searching for location…');
+        const results = await searchAddress(query);
+        setSuggestions(results);
+        if (results.length > 0) {
+            handleSuggestionClick(results[0]);
+        } else {
+            setSearchStatus('No matching address found. Try a nearby landmark or select the map manually.');
+        }
+    };
+
+    const handleClearSearch = () => {
+        geocodeRequestRef.current += 1;
+        searchedPositionRef.current = null;
+        setSearchQuery('');
+        setAddress('');
+        setSuggestions([]);
+        setShowSuggestions(false);
+        setSearchStatus('');
+        setGeocoding(false);
+        onLocationChange({ lat: null, lng: null, address: '' });
     };
 
     // Close suggestions on outside click
@@ -157,11 +246,12 @@ const MapLocationPicker = ({ onLocationChange }) => {
                     placeholder="Search for a location..."
                     value={searchQuery}
                     onChange={handleSearchChange}
+                    onKeyDown={handleSearchKeyDown}
                     onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
                     autoComplete="off"
                 />
                 {searchQuery && (
-                    <button className="map-search-clear" onClick={() => { setSearchQuery(''); setSuggestions([]); setShowSuggestions(false); }}>✕</button>
+                    <button type="button" className="map-search-clear" onClick={handleClearSearch} aria-label="Clear selected location">✕</button>
                 )}
                 {/* Suggestions dropdown */}
                 {showSuggestions && (
@@ -175,6 +265,17 @@ const MapLocationPicker = ({ onLocationChange }) => {
                     </div>
                 )}
             </div>
+            {searchStatus && (
+                <div role="status" aria-live="polite" style={{
+                    padding: '8px 14px',
+                    fontSize: '0.8rem',
+                    color: searchStatus === 'Location selected.' ? 'var(--success)' : 'var(--text-muted)',
+                    background: 'var(--bg-card)',
+                    borderBottom: '1px solid var(--border)'
+                }}>
+                    {searchStatus}
+                </div>
+            )}
 
             {/* ── Map ── */}
             <div className="map-container-wrapper">

@@ -56,7 +56,7 @@ function App() {
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <AuthProvider>
-        <BrowserRouter basename="/Local-Resolve">
+        <BrowserRouter>
           <AppRoutes />
           <ToastContainer
             position="bottom-right"

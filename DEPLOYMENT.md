@@ -9,17 +9,18 @@ This repository contains a React/Vite frontend and a Java/Spring Boot backend.
 - Never commit database passwords, JWT secrets, or `.env` files.
 - The previous Aiven hostname in older configuration may no longer resolve. Use a currently valid database hostname.
 
-## 1. Deploy MySQL
+## 1. Set up MySQL
 
-The application uses MySQL. Render does not provide a first-party managed MySQL database product, but its official MySQL template can run MySQL as a private service.
+The application requires MySQL. **For a student demo, start with Aiven's free MySQL tier**: https://aiven.io/free-mysql-database. Its current free tier is designed for small projects and includes limited resources; review its limitations before relying on it for anything important.
 
-1. Open the Render MySQL template: https://render.com/templates/mysql
-2. Deploy the template in the same Render region as the API.
-3. Review pricing and disk requirements before confirming any paid resources. A persistent disk is required to keep MySQL data across restarts and deployments.
-4. Record the actual private hostname, database name, username, and password from the service. Do not publish credentials.
-5. Create/use a database named `localresolve` (or use another name consistently in the JDBC URL).
+1. Sign in to Aiven and create a new MySQL service if your old Aiven hostname no longer resolves.
+2. Wait for the service to become ready.
+3. Record the new host, port, database name, username, and password from Aiven's connection information. Keep the credentials private.
+4. Use the database name shown by Aiven in the JDBC URL. For a provider requiring TLS, include the provider's recommended SSL parameter, for example `?sslMode=REQUIRED`.
 
-If you already have a reachable external MySQL provider, you can use that instead. Do not use `localhost` as the host for a database that runs outside the backend container.
+For Render hosting instead, you can use Render's MySQL template: https://render.com/templates/mysql. Review its plan and persistent-disk costs before creating the service; this can incur charges. If using the Render template, use the actual internal hostname and port displayed for that service.
+
+Do not use `localhost` as the host for a database that runs outside the backend container.
 
 ## 2. Deploy the API on Render
 

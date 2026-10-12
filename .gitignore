@@ -8,3 +8,5 @@ build/
 target/
 *.log
 .DS_Store
+backend/uploads/
+backend-error.txt

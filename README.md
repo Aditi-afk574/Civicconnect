@@ -152,3 +152,14 @@ CivicConnect is a student project under development. Features such as persistent
 ---
 
 **CivicConnect — Report Local Issues. Improve Your Community.**
+
+
+## 🚀 Deployment
+
+CivicConnect uses **Vercel** for the React/Vite frontend and **Render** for the Spring Boot API.
+
+- Deployment steps and required environment variables: [DEPLOYMENT.md](./DEPLOYMENT.md)
+- Vercel SPA route fallback: [frontend/vercel.json](./frontend/vercel.json)
+- Render API Blueprint: [render.yaml](./render.yaml)
+
+The API requires a reachable MySQL database configured through `DB_URL`, `DB_USER`, and `DB_PASS`, plus a private `JWT_SECRET`. Set `VITE_API_URL` in Vercel and configure `CORS_ALLOWED_ORIGINS` in Render using the actual deployed origins. Do not commit credentials to this repository.

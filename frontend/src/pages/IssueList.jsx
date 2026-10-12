@@ -9,22 +9,45 @@ const IssueList = () => {
     const [issues, setIssues] = useState([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
     const [page, setPage] = useState(0);
     const [totalPages, setTotalPages] = useState(0);
     const [filters, setFilters] = useState({ status: '', category: '', sortBy: 'createdAt' });
 
     const fetchIssues = async () => {
         setLoading(true);
+        setLoadError('');
         try {
             const params = { page, size: 9, ...filters };
             if (!params.status) delete params.status;
             if (!params.category) delete params.category;
             const res = await getAllIssues(params);
-            setIssues(res.data.content || []);
-            setTotal(res.data.totalElements || 0);
-            setTotalPages(res.data.totalPages || 0);
-        } catch {
+            const payload = res.data;
+            // Spring Data returns a Page object; accept a plain array too
+            // so the UI is resilient if the API response shape changes.
+            const rows = Array.isArray(payload)
+                ? payload
+                : Array.isArray(payload?.content)
+                    ? payload.content
+                    : null;
+
+            if (!rows) {
+                throw new Error('The server returned an unexpected issues response.');
+            }
+
+            setIssues(rows);
+            setTotal(payload?.totalElements ?? rows.length);
+            setTotalPages(payload?.totalPages ?? (rows.length ? 1 : 0));
+        } catch (err) {
+            console.error('Failed to load community issues:', err);
             setIssues([]);
+            setTotal(0);
+            setTotalPages(0);
+            if (err.response) {
+                setLoadError(`The server returned an error (HTTP ${err.response.status}). Please try again in a moment.`);
+            } else {
+                setLoadError('Could not connect to the CivicConnect server. Check the connection and press Retry.');
+            }
         } finally {
             setLoading(false);
         }
@@ -68,6 +91,13 @@ const IssueList = () => {
                 {/* Grid */}
                 {loading ? (
                     <div className="spinner" />
+                ) : loadError ? (
+                    <div className="card text-center" style={{ padding: '48px 30px' }}>
+                        <p style={{ fontSize: '2.5rem' }}>⚠️</p>
+                        <h3>Could not load community issues</h3>
+                        <p className="text-muted" style={{ margin: '12px 0 20px' }}>{loadError}</p>
+                        <button className="btn btn-primary" type="button" onClick={fetchIssues}>Retry</button>
+                    </div>
                 ) : issues.length > 0 ? (
                     <>
                         <div className="grid-3">

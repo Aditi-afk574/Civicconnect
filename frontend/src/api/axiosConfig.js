@@ -2,7 +2,9 @@ import axios from 'axios';
 
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://civicconnect-api-y2hg.onrender.com' : 'http://localhost:8080'),
-    headers: { 'Content-Type': 'application/json' },
+    // Do not set a global Content-Type here. Axios sets JSON for ordinary
+    // object payloads, while the browser must set the multipart boundary
+    // automatically when a request sends FormData (such as issue photos).
 });
 
 // Attach JWT token to every request

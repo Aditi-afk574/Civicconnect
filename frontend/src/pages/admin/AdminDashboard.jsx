@@ -7,14 +7,25 @@ import {
 } from 'recharts';
 
 // ── Mini sparkline data generator ──────────────────────────────
+function normalizeIssueList(payload) {
+    // Spring Data normally returns { content: [...] }, but support a plain
+    // array or common wrapped responses too. Never pass an object to .filter().
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.content)) return payload.content;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload?.issues)) return payload.issues;
+    return [];
+}
+
 function buildSparkline(issues, status) {
+    const safeIssues = Array.isArray(issues) ? issues : [];
     const now = new Date();
     return Array.from({ length: 7 }, (_, i) => {
         const d = new Date(now);
         d.setDate(d.getDate() - (6 - i));
         const dayStart = new Date(d.setHours(0, 0, 0, 0)).getTime();
         const dayEnd = dayStart + 86400000;
-        const count = issues.filter(is =>
+        const count = safeIssues.filter(is =>
             (!status || is.status === status) &&
             new Date(is.createdAt).getTime() >= dayStart &&
             new Date(is.createdAt).getTime() < dayEnd
@@ -90,10 +101,17 @@ const AdminDashboard = () => {
             getAdminStats(),
             getAllIssues({ page: 0, size: 200 }),
         ]).then(([statsRes, issuesRes]) => {
-            const issues = issuesRes.data.content || [];
-            setStats(statsRes.data);
+            const issues = normalizeIssueList(issuesRes?.data);
+            setStats(statsRes?.data && typeof statsRes.data === 'object' ? statsRes.data : {});
             setAllIssues(issues);
             setRecentIssues(issues.slice(0, 6));
+        }).catch(error => {
+            // Keep the admin page renderable even if an API response is unavailable
+            // or has a different shape; details remain available in browser console.
+            console.error('Failed to load admin dashboard data:', error);
+            setStats({});
+            setAllIssues([]);
+            setRecentIssues([]);
         }).finally(() => setLoading(false));
     }, []);
 

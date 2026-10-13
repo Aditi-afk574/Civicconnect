@@ -1,14 +1,13 @@
 import React, { Component } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
+import App from './App.jsx';
 
 const container = document.getElementById('root');
 
 if (!container) {
   throw new Error('Root element #root was not found in index.html');
 }
-
-const root = createRoot(container);
 
 class AppErrorBoundary extends Component {
   constructor(props) {
@@ -30,9 +29,9 @@ class AppErrorBoundary extends Component {
         <div style={{ minHeight: '100vh', background: '#001e22', color: '#e8f5f7', padding: '48px 24px', fontFamily: 'system-ui, sans-serif' }}>
           <div style={{ maxWidth: 900, margin: '0 auto' }}>
             <h1 style={{ color: '#fca5a5' }}>CivicConnect could not render</h1>
-            <p style={{ marginTop: 16, lineHeight: 1.6 }}>The website loaded, but a frontend component crashed. This diagnostic message helps us identify the exact issue.</p>
+            <p style={{ marginTop: 16, lineHeight: 1.6 }}>The website loaded, but a frontend component crashed. This diagnostic message helps identify the problem.</p>
             <pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', marginTop: 20, padding: 20, background: '#062d31', border: '1px solid #6ab5c0', borderRadius: 12 }}>{String(this.state.error?.stack || this.state.error?.message || this.state.error)}</pre>
-            <p style={{ marginTop: 16 }}>Refresh once. If this message remains, send a screenshot of this error.</p>
+            <p style={{ marginTop: 16 }}>Refresh once. If this message remains, share a screenshot of this error.</p>
           </div>
         </div>
       );
@@ -41,32 +40,10 @@ class AppErrorBoundary extends Component {
   }
 }
 
-root.render(
-  <div style={{ minHeight: '100vh', background: '#001e22', color: '#afdde5', padding: 40, fontFamily: 'system-ui, sans-serif' }}>
-    Loading CivicConnect…
-  </div>
+createRoot(container).render(
+  <React.StrictMode>
+    <AppErrorBoundary>
+      <App />
+    </AppErrorBoundary>
+  </React.StrictMode>
 );
-
-import('./App.jsx')
-  .then(({ default: App }) => {
-    root.render(
-      <React.StrictMode>
-        <AppErrorBoundary>
-          <App />
-        </AppErrorBoundary>
-      </React.StrictMode>
-    );
-  })
-  .catch((error) => {
-    console.error('CivicConnect failed to load App.jsx:', error);
-    root.render(
-      <div style={{ minHeight: '100vh', background: '#001e22', color: '#e8f5f7', padding: '48px 24px', fontFamily: 'system-ui, sans-serif' }}>
-        <div style={{ maxWidth: 900, margin: '0 auto' }}>
-          <h1 style={{ color: '#fca5a5' }}>CivicConnect startup error</h1>
-          <p style={{ marginTop: 16 }}>The browser could not load the application module.</p>
-          <pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', marginTop: 20, padding: 20, background: '#062d31', border: '1px solid #6ab5c0', borderRadius: 12 }}>{String(error?.stack || error?.message || error)}</pre>
-          <p style={{ marginTop: 16 }}>Take a screenshot of this message and share it in ChatGPT.</p>
-        </div>
-      </div>
-    );
-  });
